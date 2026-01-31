@@ -5,10 +5,38 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const client = require("prom-client");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
+
+// ================= PROMETHEUS METRICS =================
+
+// Create a Registry to register metrics
+const register = new client.Registry();
+
+// Add default metrics (CPU, memory, event loop, etc.)
+client.collectDefaultMetrics({ register });
+
+// HTTP request counter
+const httpRequestCounter = new client.Counter({
+  name: "http_requests_total",
+  help: "Total number of HTTP requests",
+  labelNames: ["method", "route", "status"],
+});
+
+// HTTP request duration
+const httpRequestDuration = new client.Histogram({
+  name: "http_request_duration_seconds",
+  help: "Duration of HTTP requests in seconds",
+  labelNames: ["method", "route", "status"],
+  buckets: [0.1, 0.3, 0.5, 1, 1.5, 2, 5],
+});
+
+register.registerMetric(httpRequestCounter);
+register.registerMetric(httpRequestDuration);
+
 
 // Middleware
 app.use(express.json({ limit: "2mb" }));
@@ -89,6 +117,34 @@ const authenticate = (req, res, next) => {
     return res.status(401).json({ message: 'Invalid token' });
   }
 };
+
+
+// Prometheus middleware to track requests
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on("finish", () => {
+    const duration = (Date.now() - start) / 1000;
+
+    httpRequestCounter.inc({
+      method: req.method,
+      route: req.route?.path || req.path,
+      status: res.statusCode,
+    });
+
+    httpRequestDuration.observe(
+      {
+        method: req.method,
+        route: req.route?.path || req.path,
+        status: res.statusCode,
+      },
+      duration
+    );
+  });
+
+  next();
+});
+
 
 // Routes
 
@@ -318,6 +374,13 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date() });
 });
 
+// Prometheus metrics endpoint
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", register.contentType);
+  res.end(await register.metrics());
+});
+
+
 // Event Schema
 const eventSchema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -405,6 +468,12 @@ app.post('/api/events/:id/register', async (req, res) => {
     res.status(500).json({ message: 'Error registering for event' });
   }
 });
+
+
+app.get("/error", (req, res) => {
+  res.status(500).send("Forced error");
+});
+
 
 const jobSchema = new mongoose.Schema({
   title: String,
