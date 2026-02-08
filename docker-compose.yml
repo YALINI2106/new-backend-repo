@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  backend:
+    image: sheconnects-backend:latest
+    build:
+      context: .
+    ports:
+      - "5000:5000"
+    restart: always

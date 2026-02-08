@@ -1,12 +1,20 @@
-FROM node:18
+# Use lightweight Node image
+FROM node:18-alpine
 
+# Create app directory
 WORKDIR /app
 
+# Copy dependency files
 COPY package*.json ./
-RUN npm install
 
+# Install dependencies
+RUN npm install --production
+
+# Copy source code
 COPY . .
 
-EXPOSE 5001
+# Expose backend port
+EXPOSE 3000
 
-CMD ["node", "server.js"]
+# Start backend
+CMD ["npm", "start"]
