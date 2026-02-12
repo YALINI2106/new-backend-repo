@@ -1,15 +1,14 @@
-name: Backend CI
+name: Backend CI-CD
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -20,16 +19,17 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Build Docker image
-      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/backend:latest .
+      run: docker build -t karpagayalini/backend:latest .
 
     - name: Push Docker image
-      run: docker push ${{ secrets.DOCKER_USERNAME }}/backend:latest
+      run: docker push karpagayalini/backend:latest
+
     - name: Deploy to EC2
-  uses: appleboy/ssh-action@v1.0.3
-  with:
-    host: ${{ secrets.EC2_HOST }}
-    username: ${{ secrets.EC2_USER }}
-    key: ${{ secrets.EC2_SSH_KEY }}
-    script: |
-      cd ~
-      ./deploy.sh
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd ~
+          ./deploy.sh
