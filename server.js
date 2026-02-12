@@ -496,4 +496,4 @@ app.listen(PORT, () => {
 });
 
 
-// console.log("CI test run");
+console.log("CI test run");
